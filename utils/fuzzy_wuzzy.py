@@ -35,8 +35,9 @@ def custom_fuzzy_wuzzy(similar_list, query_text):
             output_list.append(el)
     out = ''
     a = sorted(output_list, key=lambda x: (x[1], x[2]), reverse=True)
-    print(a)
-    print(similar_list)
+    # принты убрать, обращения писать в логи
+    # print(a)
+    # print(similar_list)
     for word in a:
         out += word[0] + ', '
 
