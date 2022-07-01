@@ -1,15 +1,13 @@
+import os
 import telebot
-from telebot import types
 import psycopg2
+import config
 
 from utils.fuzzy_wuzzy import standart_fuzzy_wuzzy, custom_fuzzy_wuzzy
 
-test_bot = '2080377181:AAHZ234eNUgd28wcYQXacMGosjYiqrjbwMI'
+test_bot = os.getenv('TBOT_TOKEN')
 
 bot = telebot.TeleBot(test_bot)
-
-
-# lang = ''
 
 
 @bot.message_handler(commands=['start'])
@@ -20,43 +18,25 @@ def start_message(message):
                      f'русские, и калмыцкие слова. Просто начни мне писать! ')
 
 
-# @bot.message_handler(commands=['lang'])
-# def lang_buttons(message):
-#     keyboard = types.InlineKeyboardMarkup()
-#     rus_kalm = types.InlineKeyboardButton(text='Русско-калмыцкий', callback_data='rus_kalm')
-#     kalm_rus = types.InlineKeyboardButton(text='Калмыцко-русский', callback_data='kalm_rus')
-#     keyboard.add(rus_kalm, kalm_rus)
-#     bot.send_message(message.chat.id, 'Выбери режим', reply_markup=keyboard)
-
-
-# @bot.callback_query_handler(func=lambda call: True) def callback_worker(call): global lang if call.data ==
-# 'rus_kalm': bot.send_message(call.message.chat.id, '''Вы выбрали режим перевода с русского на калмыцкий. Количество
-# словарный статей в данном режиме VAR ''') lang = 'rus_kalm' elif call.data == 'kalm_rus': bot.send_message(
-# call.message.chat.id, '''Вы выбрали режим перевода с русского на калмыцкий. Количество словарный статей в данном
-# режиме VAR ''') lang = 'kalm_rus'
-
 similarity_percentage = 0.1
 
-# сделать режим есть калмыцкие буквы или нет?
+
 @bot.message_handler(content_types=['text'])
 def get_text_message(message):
     con = psycopg2.connect(
-        database='testdb',
-        user='andrey',
-        password="Yashkul08#",
-        host="127.0.0.1",
-        port="5432"
+        database=os.getenv('db_name'),
+        user=os.getenv('db_user'),
+        password=os.getenv('db_pswd'),
+        host=os.getenv('db_host'),
+        port=os.getenv('db_port'),
     )
     cur = con.cursor()
-    try:  # в этом блоке - выбираем  с помощью триграмм.
-        # 1. если есть полное совпадение (индекс 1), то высылаем его (а если несколько)
-        # 2. Если нет полного "сори, но возможно вы имели ввиду .... - список ближайших совпадений"
-        # cur.execute(f"SELECT * FROM all_words WHERE word='{message.text.lower()}' AND type='{lang}';")
+    try:
         text = message.text.lower()
         cur.execute(
             f"WITH ts AS (SELECT word, article, (similarity(all_words.word, '{text}')) AS similarity, dictionary "
             f"FROM all_words ORDER BY similarity DESC) SELECT * FROM ts WHERE similarity >= {similarity_percentage} "
-            f"AND LENGTH(word) BETWEEN {len(text)} AND {len(text)+1};")
+            f"AND LENGTH(word) BETWEEN {len(text)} AND {len(text) + 1};")
         row = cur.fetchall()
         if row:
             exact_math = []
@@ -90,9 +70,6 @@ def get_text_message(message):
             raise IndexError
 
         con.close()
-
-    # except psycopg2.errors.SyntaxError:
-    #     bot.send_message(message.from_user.id, 'Вы не выбрали режим. Для выбора режима напишите /lang')
     except IndexError:
         bot.send_message(message.from_user.id, 'К сожалению, ничего похожего я не нашел.')
 

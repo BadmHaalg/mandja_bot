@@ -17,7 +17,6 @@ pairs = {
 }
 
 
-# similarity уже не очень выборку дает иногда
 def standart_fuzzy_wuzzy(query, from_db):
     return fuzz.WRatio(query, from_db)
 
@@ -36,8 +35,6 @@ def custom_fuzzy_wuzzy(similar_list, query_text):
     out = ''
     a = sorted(output_list, key=lambda x: (x[1], x[2]), reverse=True)
     # принты убрать, обращения писать в логи
-    # print(a)
-    # print(similar_list)
     for word in a:
         out += word[0] + ', '
 
