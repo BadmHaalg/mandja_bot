@@ -3,6 +3,7 @@ import telebot
 import psycopg2
 import config
 
+from telebot import types
 from utils.fuzzy_wuzzy import standart_fuzzy_wuzzy, custom_fuzzy_wuzzy
 
 test_bot = os.getenv('TBOT_TOKEN')
@@ -21,8 +22,8 @@ def start_message(message):
 similarity_percentage = 0.1
 
 
-@bot.message_handler(content_types=['text'])
-def get_text_message(message):
+@bot.callback_query_handler(func=lambda call: True)
+def callback(call):
     con = psycopg2.connect(
         database=os.getenv('db_name'),
         user=os.getenv('db_user'),
@@ -30,8 +31,29 @@ def get_text_message(message):
         host=os.getenv('db_host'),
         port=os.getenv('db_port'),
     )
-    cur = con.cursor()
+    curr = con.cursor()
+    if call:
+        curr.execute(f"SELECT word, article, dictionary FROM all_words WHERE word='{call.data.replace(' ', '')}'")
+        response = curr.fetchall()
+        word = response[0][0].replace(' ', '')
+        translate = response[0][1]
+        dictionary = response[0][2]
+        r = f"{word} - {translate}. \n ---------- \n Словарь: {dictionary}"
+        bot.answer_callback_query(call.id, word)
+        bot.send_message(call.message.chat.id, r)
+    con.close()
+
+@bot.message_handler(content_types=['text'])
+def get_text_message(message):
     try:
+        con = psycopg2.connect(
+            database=os.getenv('db_name'),
+            user=os.getenv('db_user'),
+            password=os.getenv('db_pswd'),
+            host=os.getenv('db_host'),
+            port=os.getenv('db_port'),
+        )
+        cur = con.cursor()
         text = message.text.lower()
         cur.execute(
             f"WITH ts AS (SELECT word, article, (similarity(all_words.word, '{text}')) AS similarity, dictionary "
@@ -54,14 +76,19 @@ def get_text_message(message):
                 for article in exact_math:
                     bot.send_message(
                         message.from_user.id,
-                        article, parse_mode='Markdown'
-                    )
+                        article)
             else:
                 to_send = custom_fuzzy_wuzzy(similar, text)
                 if to_send:
+                    markup = types.InlineKeyboardMarkup(row_width=3)
+                    buttons = []
+                    for t in to_send.split(','):
+                        itembtn = types.InlineKeyboardButton(t, callback_data=t)
+                        buttons.append(itembtn)
+                    markup.add(*buttons)
                     bot.send_message(message.from_user.id,
-                                     f'К сожалению, я не нашел слова "{text}". Вот похожие на ваш запрос слова:')
-                    bot.send_message(message.from_user.id, to_send)
+                                     f'К сожалению, я не нашел слова "{text}". Вот похожие на ваш запрос слова:',
+                                     reply_markup=markup)
                     bot.send_message(message.from_user.id,
                                      'Если среди них есть нужно вам, пришлите мне его и я его переведу.')
                 else:
