@@ -51,10 +51,10 @@ def get_text_message(message):
                 else:
                     similar.append([word, standart_fuzzy_wuzzy(text, word), similarity])
             if exact_math:
-                for artilce in exact_math:
+                for article in exact_math:
                     bot.send_message(
                         message.from_user.id,
-                        artilce
+                        article, parse_mode='Markdown'
                     )
             else:
                 to_send = custom_fuzzy_wuzzy(similar, text)
